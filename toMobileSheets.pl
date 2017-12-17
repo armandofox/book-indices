@@ -51,10 +51,11 @@ foreach $file (glob '*.csv') {
         push(@lines,sprintf("%04d,%s",0+$startpage,$title));
     }
     close $fh;
-    print OUT join(',',("title","pages",keys(%extracols)))."\n";
+    print OUT join(',',("title","pages","albums",keys(%extracols)))."\n";
+    ($album = $file) =~ s/\.csv//;
     foreach $_ (sort @lines) {
         if (/^(\d+),(.*)$/) {
-            printf OUT ("%s,%d-%d,%s\n", $2, $1, $1+$offset, join(',',values(%extracols)));
+            printf OUT ("%s,%d-%d,%s,%s\n", $2, $1, $1+$offset, $album, join(',',values(%extracols)));
         } 
     }
     close OUT;

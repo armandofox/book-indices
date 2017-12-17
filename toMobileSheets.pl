@@ -22,29 +22,42 @@ sub try_match {
 }
 
 $offset = 1;
-@lines = ();
 
 $dir = shift @ARGV;
-die "Usage: $0 <dirname>\nCreates MobileSheets-compatible CSVs in directory 'dirname', which must exist\n" unless $dir && -d $dir;
+die "Usage:
+  $0 <dirname>
+         Creates MobileSheets-compatible CSVs in directory 'dirname', which must exist
+  $0 <dirname> col1=val1 col2=val2  ...etc...
+        Also adds col1,col2, etc. as columns in the output CSV, with  val1,val2, etc as the
+        fixed value in that column for each entry. Useful for setting columns
+        like genre,collections,etc. in MobileSheets.
+" unless $dir && -d $dir;
 
+%extracols = ();
+while($_ = shift @ARGV) {
+    my($colname,$colval) = split(/=/);
+    $extracols{$colname} = $colval;
+}
 foreach $file (glob '*.csv') {
     open($fh,'<',$file) or die "Can't open $file";
     open(OUT,'>',"$dir/$file") or die "Can't write $dir/$file";
+    @lines = ();
     while (<$fh>) {
         chomp;
         next  if /^#/;       # ignore lines beginning with '#'
         next if /^\s*$/;    # ignore blank lines
         
         ($title,$startpage) = try_match($_);
-        push(@lines,"$startpage,$title");
+        push(@lines,sprintf("%04d,%s",0+$startpage,$title));
     }
     close $fh;
-    print OUT "title,pages\n";
+    print OUT join(',',("title","pages",keys(%extracols)))."\n";
     foreach $_ (sort @lines) {
         if (/^(\d+),(.*)$/) {
-            printf OUT ("%s,%d-%d\n", $2, $1, $1+$offset);
+            printf OUT ("%s,%d-%d,%s\n", $2, $1, $1+$offset, join(',',values(%extracols)));
         } 
     }
+    close OUT;
 }
 
 

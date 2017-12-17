@@ -1,4 +1,4 @@
-#!/usr/bin/perl -n
+#!/usr/bin/perl
 
 # Rules for "simplified CSV" parsing (from github:aspiers/book-indices README):
 # Each line looks like either
@@ -11,52 +11,41 @@
 # If double quoted, it may contain escaped dquotes, eg "Take the ""A"" Train"
 #
 
-
-sub tests() {
-    my @tests = ('"Take the ""A"" Train"', 'Stormy Weather', '"I, Don Quixote"');
-    my $title,$page;
-    # test with just starting page number
-    foreach $test (@tests) {
-        ($title,$page) = try_match("$test,5,");
-        die "Failed name match on <$test,5,>, got <$title>" unless ($title==$test);
-        die "Failed page match on <$test,5,>, got <$page>" unless ($page=='5');
-        ($title,$page) = try_match("$test,5,7");
-        die "Failed name match on <$test,5,7>, got <$title>" unless ($title==$test);
-        die "Failed page match on <$test,5,7>, got <$page>" unless ($page=='5');
-    }
-}
-
 sub try_match {
     my $line = shift;
-
     if (($line =~ /^(.*),(\d+),(\d+),?\s*$/ ) || 
         ($line =~ /^(.*),(\d+),?\s*$/ )) {
         return ($1,$2);
     } else {
-        die $line;
+        warn "Couldn't parse line $. in $file:\n$line\n";
     }
 }
 
-BEGIN {
-    tests();                                    # make sure all works ok
-    $prev_title,$prev_startpage = undef,undef;
-    print "title,pages\n";
-}
-
+$offset = 1;
 @lines = ();
-while (<>) {
-    chomp;
-    next if /^#/;       # ignore lines beginning with '#'
-    next if /^\s*$/;    # ignore blank lines
 
-    ($title,$startpage) = try_match($_);
-    # if we have a pending entry, spit it out
-    if ($prev_title) {
-        printf("%s,%d-%d\n", $prev_title, $prev_startpage,$startpage);
+$dir = shift @ARGV;
+die "Usage: $0 <dirname>\nCreates MobileSheets-compatible CSVs in directory 'dirname', which must exist\n" unless $dir && -d $dir;
+
+foreach $file (glob '*.csv') {
+    open(FH,'<',$file) or die "Can't open $file";
+    open(OUT,'>',"$dir/$file") or die "Can't write $dir/$file";
+    while (<FH>) {
+        chomp;
+        next  if /^#/;       # ignore lines beginning with '#'
+        next if /^\s*$/;    # ignore blank lines
+        
+        ($title,$startpage) = try_match($_);
+        push(@lines,"$startpage,$title");
     }
-    ($prev_title,$prev_startpage) = ($title,$startpage);
     
-END {
-    # output final entry
-    printf("%s,%d-%d\n", $title,$startpage,$startpage+1);
-}    
+    print OUT "title,pages\n";
+    foreach $_ (sort @lines) {
+        if (/^(\d+),(.*)$/) {
+            printf OUT ("%s,%d-%d\n", $2, $1, $1+$offset);
+        } 
+    }
+    printf STDERR "$file -->  $dir/$file\n";
+}
+
+
